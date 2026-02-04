@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row mb-3">
+  <div class="col-md-12 text-center">
+    <label>Select Group</label>
+    <select id="group-select" class="form-select" style="max-width:400px; margin:0 auto"></select>
+  </div>
+</div>
+<div class="row">
+  <div class="col-md-6">
+    <h5>Member User List</h5>
+    <form id="remove-members-form">
+      <table id="members-table" class="table table-sm"><thead><tr><th></th><th>User</th></tr></thead><tbody></tbody></table>
+      <button class="btn btn-danger" type="submit">Remove Members</button>
+    </form>
+  </div>
+  <div class="col-md-6">
+    <h5>Non-Member User List</h5>
+    <form id="add-members-form">
+      <table id="nonmembers-table" class="table table-sm"><thead><tr><th></th><th>User</th></tr></thead><tbody></tbody></table>
+      <button class="btn btn-success" type="submit">Add Members</button>
+    </form>
+  </div>
+</div>
+<div id="group-members-output" class="mt-2"></div>
+{% endblock %}

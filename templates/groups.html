@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-md-4" style="flex: 0 0 35%; max-width:35%">
+    <h4>Create Group</h4>
+    <form id="create-group-form">
+      <div class="mb-2">
+        <label>Group Name</label>
+        <input name="group_name" class="form-control">
+      </div>
+      <div class="mb-2">
+        <label>Group Description</label>
+        <input name="group_description" class="form-control">
+      </div>
+      <div class="text-center mt-3">
+        <button class="btn btn-primary" type="submit">Create Group</button>
+      </div>
+    </form>
+    <div id="create-group-output" class="mt-2"></div>
+  </div>
+
+  <div class="col-md-8" style="flex: 0 0 65%; max-width:65%">
+    <h4>Group List</h4>
+    <table id="groups-table" class="table table-striped" style="width:100%">
+      <thead>
+        <tr><th>Group Name</th><th>Description</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-md-4" style="flex: 0 0 35%; max-width:35%">
+    <h4>Create User</h4>
+    <form id="create-user-form">
+      <div class="mb-2">
+        <label>First Name</label>
+        <input name="first_name" class="form-control">
+      </div>
+      <div class="mb-2">
+        <label>Last Name</label>
+        <input name="last_name" class="form-control">
+      </div>
+      <div class="mb-2">
+        <label>Password</label>
+        <input name="password" type="password" class="form-control">
+      </div>
+      <div class="mb-2">
+        <label>Email</label>
+        <input name="email" type="email" class="form-control">
+      </div>
+      <div class="text-center mt-3">
+        <button class="btn btn-primary" type="submit">Create User</button>
+      </div>
+    </form>
+    <div id="create-user-output" class="mt-2"></div>
+  </div>
+
+  <div class="col-md-8" style="flex: 0 0 65%; max-width:65%">
+    <h4>User List</h4>
+    <table id="users-table" class="table table-striped" style="width:100%">
+      <thead>
+        <tr><th>User Name</th><th>Email</th><th>Groups</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
