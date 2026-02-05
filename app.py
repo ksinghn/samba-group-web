@@ -30,7 +30,11 @@ def execute_ssh(command, timeout=60):
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         client.connect(info['host'], port=info['port'], username=info['username'], password=info['password'], look_for_keys=False, allow_agent=False, timeout=10)
+        command = "sudo -S -p '' %s" % command
         stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
+        # Send password for sudo
+        stdin.write(info['password'] + '\n')
+        stdin.flush()
         out = stdout.read().decode('utf-8', errors='ignore')
         err = stderr.read().decode('utf-8', errors='ignore')
         exit_status = stdout.channel.recv_exit_status()
