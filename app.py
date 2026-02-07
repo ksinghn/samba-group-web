@@ -67,6 +67,45 @@ def set_connection():
     flash('SSH connection configured', 'success')
     return redirect(url_for('index'))
 
+
+@app.route('/validate_connection', methods=['POST'])
+def validate_connection():
+    data = request.get_json() or request.form
+    host = data.get('host')
+    username = data.get('username')
+    password = data.get('password')
+    print ("Received connection validation request:", data)
+    try:
+        port = int(data.get('port') or 22)
+    except Exception:
+        port = 22
+
+    if not host or not username or not password:
+        return jsonify({'ok': False, 'error': 'host, username and password required'}), 400
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        client.connect(hostname=host, port=port, username=username, password=password, look_for_keys=False, allow_agent=False, timeout=8)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.route('/disconnect', methods=['POST'])
+def disconnect():
+    session.pop('ssh_host', None)
+    session.pop('ssh_user', None)
+    session.pop('ssh_pass', None)
+    session.pop('ssh_port', None)
+    flash('SSH connection cleared', 'info')
+    return jsonify({'ok': True})
+
 @app.route('/connection_info')
 def connection_info():
     info = get_connection_info()

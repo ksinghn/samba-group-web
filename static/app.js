@@ -1,25 +1,57 @@
 $(function(){
-  // connection form
+  // connection form - validate before saving
   $('#connect-form').on('submit', function(e){
     e.preventDefault();
     var form = $(this);
-    $.post('/set_connection', form.serialize(), function(){
-      $('#conn-status').text('Connected (saved)').addClass('text-success');
-      setTimeout(()=>$('#conn-status').text(''),3000);
-    }).fail(function(xhr){
-      $('#conn-status').text('Failed').addClass('text-danger');
-    });
+    var obj = {};
+    form.serializeArray().forEach(function(p){ obj[p.name]=p.value });
+
+    $('#conn-status').html('Checking...');
+    $.ajax({url:'/validate_connection', method:'POST', contentType:'application/json', data:JSON.stringify(obj)})
+      .done(function(res){
+        if(res.ok){
+          // save to session
+          $.post('/set_connection', form.serialize(), function(){
+            $('#conn-status').html('<span style="color:green;">✓ Connected to '+obj.host+' as '+obj.username+'</span>').removeClass('text-danger');
+            $('#disconnect-btn').show();
+          }).fail(function(){
+            $('#conn-status').text('Failed to save connection').addClass('text-danger');
+          });
+        } else {
+          $('#conn-status').html('<span style="color:orange;">⚠ Connection failed: '+(res.error||'Unknown')+'</span>').addClass('text-danger');
+        }
+      })
+      .fail(function(xhr){
+        var msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Validation failed';
+        $('#conn-status').html('<span style="color:orange;">⚠ Connection failed: '+msg+'</span>').addClass('text-danger');
+      });
   });
 
   // show connection info
   function refreshConn(){
     $.get('/connection_info', function(data){
+      var status = $('#conn-status');
+      if(!status.length) return;
       if(data.connected){
-        $('#conn-status').text(data.host+"@"+data.username).addClass('text-success');
+        status.html('<span style="color:green;">✓ Connected to '+data.host+' as '+data.username+'</span>').removeClass('text-danger');
+        $('#disconnect-btn').show();
+      } else {
+        status.html('<span style="color:orange;">⚠ Not connected. Please configure SSH connection above.</span>').removeClass('text-success');
+        $('#disconnect-btn').hide();
       }
     });
   }
   refreshConn();
+
+  // disconnect button
+  $('#disconnect-btn').on('click', function(){
+    $.post('/disconnect', function(){
+      $('#conn-status').html('<span style="color:orange;">⚠ Not connected. Please configure SSH connection above.</span>');
+      $('#disconnect-btn').hide();
+    }).fail(function(){
+      alert('Failed to disconnect');
+    });
+  });
 
   // Users page
   if($('#users-table').length){
