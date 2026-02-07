@@ -1,24 +1,13 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from config import Config
-from forms import LoginForm, UserForm, GroupForm
+from forms import UserForm, GroupForm
 from utils import parse_user_show
 import paramiko
 import os
 import shlex
-from functools import wraps
 
 app = Flask(__name__)
 app.config.from_object(Config)
-
-# --- Authentication Decorator ---
-
-def login_required(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        if not session.get('logged_in'):
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return wrapper
 
 # --- SSH Connection Helper ---
 
@@ -62,33 +51,13 @@ def execute_ssh(command, timeout=60):
     finally:
         client.close()
 
-# --- Login Routes ---
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    form = LoginForm()
-    if form.validate_on_submit():
-        if form.password.data == app.config['ADMIN_PASSWORD']:
-            session['logged_in'] = True
-            session.permanent = True
-            return redirect(url_for('index'))
-        flash('Invalid password', 'danger')
-    return render_template('login.html', form=form)
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
 # --- Main Routes ---
 
 @app.route('/')
 def index():
-    form = LoginForm()
-    return render_template('index.html', login_form=form)
+    return render_template('index.html')
 
 @app.route('/set_connection', methods=['POST'])
-@login_required
 def set_connection():
     data = request.form
     session['ssh_host'] = data.get('host')
@@ -99,7 +68,6 @@ def set_connection():
     return redirect(url_for('index'))
 
 @app.route('/connection_info')
-@login_required
 def connection_info():
     info = get_connection_info()
     ok = bool(info['host'] and info['username'] and info['password'])
@@ -112,7 +80,6 @@ def connection_info():
 # --- Users Management ---
 
 @app.route('/users', methods=['GET', 'POST'])
-@login_required
 def users_page():
     form = UserForm()
     result = None
@@ -142,18 +109,9 @@ def users_page():
             except SSHExecError as e:
                 flash(str(e), 'danger')
     
-    # List users
-    try:
-        status, out, err = execute_ssh('samba-tool user list')
-        if status == 0:
-            users = [u.strip() for u in out.splitlines() if u.strip()]
-    except SSHExecError:
-        flash('Could not retrieve user list', 'warning')
-    
     return render_template('users.html', form=form, users=users, result=result)
 
 @app.route('/api/users')
-@login_required
 def api_users():
     try:
         status, out, err = execute_ssh('samba-tool user list')
@@ -179,7 +137,6 @@ def api_users():
 # --- Groups Management ---
 
 @app.route('/groups', methods=['GET', 'POST'])
-@login_required
 def groups_page():
     form = GroupForm()
     result = None
@@ -206,18 +163,9 @@ def groups_page():
             except SSHExecError as e:
                 flash(str(e), 'danger')
     
-    # List groups
-    try:
-        status, out, err = execute_ssh('samba-tool group list')
-        if status == 0:
-            groups = [g.strip() for g in out.splitlines() if g.strip()]
-    except SSHExecError:
-        flash('Could not retrieve group list', 'warning')
-    
     return render_template('groups.html', form=form, groups=groups, result=result)
 
 @app.route('/api/groups')
-@login_required
 def api_groups():
     try:
         status, out, err = execute_ssh('samba-tool group list')
@@ -251,38 +199,48 @@ def api_groups():
 # --- Group Members Management ---
 
 @app.route('/group-members')
-@login_required
 def group_members_page():
     return render_template('group_members.html')
 
 @app.route('/api/group_members')
-@login_required
 def api_group_members():
     group = request.args.get('group')
     if not group:
         return jsonify({'error': 'group parameter required'}), 400
-    
+
     try:
         status, out, err = execute_ssh(f"samba-tool group listmembers {shlex.quote(group)}")
     except SSHExecError as e:
         return jsonify({'error': str(e)}), 400
-    
+
     if status != 0:
         return jsonify({'error': err or out}), 500
-    
-    members = [l.strip() for l in out.splitlines() if l.strip()]
-    
+
+    members_usernames = [l.strip() for l in out.splitlines() if l.strip()]
+
+    # get all users with details
     try:
         status_u, out_u, err_u = execute_ssh('samba-tool user list')
-        users = [u.strip() for u in out_u.splitlines() if u.strip()]
+        users_list = [u.strip() for u in out_u.splitlines() if u.strip()]
     except SSHExecError:
-        users = []
-    
-    non_members = [u for u in users if u not in members]
+        users_list = []
+
+    users_details = []
+    for u in users_list:
+        try:
+            s, out_u, err_u = execute_ssh(f"samba-tool user show {shlex.quote(u)}")
+            email, groups = parse_user_show(out_u)
+            users_details.append({'username': u, 'email': email, 'groups': groups})
+        except SSHExecError:
+            users_details.append({'username': u, 'email': '', 'groups': []})
+
+    members = [ud for ud in users_details if ud['username'] in members_usernames]
+    non_members = [ud for ud in users_details if ud['username'] not in members_usernames]
+
     return jsonify({'members': members, 'non_members': non_members})
 
 @app.route('/api/add_members', methods=['POST'])
-@login_required
+# @login_required
 def api_add_members():
     data = request.json or request.form
     group = data.get('group')
@@ -303,7 +261,7 @@ def api_add_members():
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/remove_members', methods=['POST'])
-@login_required
+# @login_required
 def api_remove_members():
     data = request.json or request.form
     group = data.get('group')

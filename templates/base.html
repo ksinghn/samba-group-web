@@ -5,20 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Samba GUI{% endblock %}</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <!-- DataTables -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
   </head>
   <body>
     <div class="container">
       <header>
         <h1>Samba Management GUI</h1>
-        {% if session.get('logged_in') %}
         <nav>
           <a href="/">Home</a> |
           <a href="/users">Users</a> |
           <a href="/groups">Groups</a> |
-          <a href="/group-members">Group Members</a> |
-          <a href="/logout">Logout</a>
+          <a href="/group-members">Group Members</a>
         </nav>
-        {% endif %}
       </header>
       <main>
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -33,5 +32,8 @@
         {% block content %}{% endblock %}
       </main>
     </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="/static/app.js"></script>
   </body>
 </html>
