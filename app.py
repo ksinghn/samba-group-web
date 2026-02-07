@@ -224,7 +224,7 @@ def api_remove_members():
         users = [users]
     if not group or not users:
         return jsonify({'error': 'group and users required'}), 400
-    cmd = 'samba-tool group removemembers ' + shlex.quote(group) + ' ' + ' '.join(shlex.quote(u) for u in users)
+    cmd = 'samba-tool group removemembers ' + shlex.quote(group) + ' ' + ', '.join(shlex.quote(u) for u in users)
     try:
         status, out, err = execute_ssh(cmd)
     except SSHExecError as e:
