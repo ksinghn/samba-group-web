@@ -1,32 +1,77 @@
 {% extends 'base.html' %}
-{% block content %}
-<div class="row">
-  <div class="col-md-4" style="flex: 0 0 35%; max-width:35%">
-    <h4>Create Group</h4>
-    <form id="create-group-form">
-      <div class="mb-2">
-        <label>Group Name</label>
-        <input name="group_name" class="form-control">
-      </div>
-      <div class="mb-2">
-        <label>Group Description</label>
-        <input name="group_description" class="form-control">
-      </div>
-      <div class="text-center mt-3">
-        <button class="btn btn-primary" type="submit">Create Group</button>
-      </div>
-    </form>
-    <div id="create-group-output" class="mt-2"></div>
-  </div>
 
-  <div class="col-md-8" style="flex: 0 0 65%; max-width:65%">
-    <h4>Group List</h4>
-    <table id="groups-table" class="table table-striped" style="width:100%">
-      <thead>
-        <tr><th>Group Name</th><th>Description</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+{% block title %}Groups - Samba GUI{% endblock %}
+
+{% block content %}
+<h2>Group Management</h2>
+
+<div class="card">
+  <h3>Create New Group</h3>
+  <form method="post">
+    {{ form.hidden_tag() }}
+    
+    <p>
+      {{ form.group_name.label }}<br>
+      {{ form.group_name() }}
+      {% if form.group_name.errors %}
+        <span style="color: red;">{{ form.group_name.errors[0] }}</span>
+      {% endif %}
+    </p>
+    
+    <p>
+      {{ form.group_description.label }}<br>
+      {{ form.group_description() }}
+      {% if form.group_description.errors %}
+        <span style="color: red;">{{ form.group_description.errors[0] }}</span>
+      {% endif %}
+    </p>
+    
+    <p>
+      {{ form.submit(class="btn btn-primary") }}
+    </p>
+  </form>
+</div>
+
+{% if result %}
+  <div class="card">
+    <h3>Command Result</h3>
+    {% if result[0] == 0 %}
+      <div class="alert alert-success">Command executed successfully</div>
+    {% else %}
+      <div class="alert alert-danger">Command failed with exit code {{ result[0] }}</div>
+    {% endif %}
+    {% if result[1] %}
+      <h4>Output:</h4>
+      <pre>{{ result[1] }}</pre>
+    {% endif %}
+    {% if result[2] %}
+      <h4>Error:</h4>
+      <pre style="color: #d00;">{{ result[2] }}</pre>
+    {% endif %}
   </div>
+{% endif %}
+
+<div class="card">
+  <h3>Existing Groups</h3>
+  {% if groups %}
+    <table>
+      <thead>
+        <tr>
+          <th>Group Name</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in groups %}
+          <tr>
+            <td><a href="/group-members?group={{ g }}">{{ g }}</a></td>
+            <td>-</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p><em>No groups found or unable to retrieve group list.</em></p>
+  {% endif %}
 </div>
 {% endblock %}

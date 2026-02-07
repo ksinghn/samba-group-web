@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Samba GUI{% endblock %}
+
+{% block content %}
+{% if not session.get('logged_in') %}
+<div class="card" style="max-width: 400px; margin: 50px auto;">
+  <h3>Admin Login</h3>
+  <form method="post" action="/login">
+    {{ login_form.hidden_tag() }}
+    <p>
+      {{ login_form.password.label }}<br>
+      {{ login_form.password(size=32) }}
+    </p>
+    <p>
+      {{ login_form.submit(class="btn btn-primary") }}
+    </p>
+  </form>
+</div>
+{% else %}
+<h2>Welcome to Samba Management GUI</h2>
+
+<div class="card">
+  <h3>SSH Connection Configuration</h3>
+  <form method="post" action="/set_connection">
+    <p>
+      <label for="host">SSH Host (IP or hostname)</label><br>
+      <input type="text" id="host" name="host" value="{{ session.get('ssh_host', '') }}" required>
+    </p>
+    <p>
+      <label for="username">SSH Username</label><br>
+      <input type="text" id="username" name="username" value="{{ session.get('ssh_user', '') }}" required>
+    </p>
+    <p>
+      <label for="password">SSH Password</label><br>
+      <input type="password" id="password" name="password" required>
+    </p>
+    <p>
+      <label for="port">SSH Port</label><br>
+      <input type="text" id="port" name="port" value="{{ session.get('ssh_port', '22') }}">
+    </p>
+    <p>
+      <button type="submit" class="btn btn-primary">Configure Connection</button>
+    </p>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Available Options</h3>
+  <p>Once connected, select an option from the navigation menu to manage your Samba domain:</p>
+  <ul>
+    <li><strong><a href="/users">Users</a></strong> - Create and manage user accounts</li>
+    <li><strong><a href="/groups">Groups</a></strong> - Create and manage groups</li>
+    <li><strong><a href="/group-members">Group Members</a></strong> - Manage group membership</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Connection Status</h3>
+  <p id="connection-status">Checking connection...</p>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('/connection_info')
+    .then(r => r.json())
+    .then(data => {
+      const status = document.getElementById('connection-status');
+      if (data.connected) {
+        status.innerHTML = '<span style="color: green;">✓ Connected to ' + data.host + ' as ' + data.username + '</span>';
+      } else {
+        status.innerHTML = '<span style="color: orange;">⚠ Not connected. Please configure SSH connection above.</span>';
+      }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}
