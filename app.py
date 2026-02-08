@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from config import Config
 from forms import UserForm, GroupForm
@@ -21,6 +22,90 @@ def get_connection_info():
 
 class SSHExecError(Exception):
     pass
+
+# TODO : Performance Issue Fix
+@contextmanager
+def ssh_session():
+    info = get_connection_info()
+    if not info['host'] or not info['username'] or not info['password']:
+        raise SSHExecError('Connection info not set. Please configure SSH connection.')
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        client.connect(
+            info['host'],
+            port=info['port'],
+            username=info['username'],
+            password=info['password'],
+            look_for_keys=False,
+            allow_agent=False,
+            timeout=5,          # socket connect timeout
+            auth_timeout=5,     # auth timeout
+            banner_timeout=5    # banner timeout
+        )
+        # Keepalive can help prevent drops on longer requests
+        transport = client.get_transport()
+        if transport:
+            transport.set_keepalive(15)
+
+        yield client, info
+    finally:
+        client.close()
+
+def exec_on_client(client, password, command, timeout=20):
+    """
+    Execute command on an existing SSH connection using sudo.
+    """
+    # get_pty=True often avoids sudo waiting for tty / prompt weirdness
+    cmd = f"sudo -S -p '' {command}"
+    stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout, get_pty=True)
+
+    # Send sudo password
+    stdin.write(password + "\n")
+    stdin.flush()
+
+    out = stdout.read().decode("utf-8", errors="ignore")
+    err = stderr.read().decode("utf-8", errors="ignore")
+    status = stdout.channel.recv_exit_status()
+    return status, out, err
+
+@app.route('/api/groups')
+def api_groups():
+    try:
+        with ssh_session() as (client, info):
+            status, out, err = exec_on_client(client, info['password'], 'samba-tool group list', timeout=20)
+
+            if status != 0:
+                return jsonify({'error': err or out}), 500
+
+            groups_list = [g.strip() for g in out.splitlines() if g.strip()]
+            result = []
+
+            for g in groups_list:
+                desc = ''
+                status_g, out_g, err_g = exec_on_client(
+                    client,
+                    info['password'],
+                    f"samba-tool group show {shlex.quote(g)}",
+                    timeout=20
+                )
+                if status_g == 0:
+                    for line in out_g.splitlines():
+                        if line.strip().lower().startswith('description:'):
+                            desc = line.split(':', 1)[1].strip() if ':' in line else ''
+                            break
+
+                result.append({'name': g, 'description': desc})
+
+            resp = jsonify({'groups': result})
+            resp.headers["Cache-Control"] = "no-store"  # still always-live
+            return resp
+
+    except SSHExecError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 def execute_ssh(command, timeout=60):
     """Execute a command on the remote host via SSH with sudo."""
@@ -204,36 +289,36 @@ def groups_page():
     
     return render_template('groups.html', form=form, groups=groups, result=result)
 
-@app.route('/api/groups')
-def api_groups():
-    try:
-        status, out, err = execute_ssh('samba-tool group list')
-    except SSHExecError as e:
-        return jsonify({'error': str(e)}), 400
+# @app.route('/api/groups')
+# def api_groups():
+#     try:
+#         status, out, err = execute_ssh('samba-tool group list')
+#     except SSHExecError as e:
+#         return jsonify({'error': str(e)}), 400
     
-    if status != 0:
-        return jsonify({'error': err or out}), 500
+#     if status != 0:
+#         return jsonify({'error': err or out}), 500
     
-    groups_list = [g.strip() for g in out.splitlines() if g.strip()]
-    result = []
+#     groups_list = [g.strip() for g in out.splitlines() if g.strip()]
+#     result = []
     
-    for g in groups_list:
-        desc = ''
-        try:
-            status, out_g, err_g = execute_ssh(f"samba-tool group show {shlex.quote(g)}")
-            if status == 0:
-                for line in out_g.splitlines():
-                    if line.strip().lower().startswith('description:'):
-                        parts = line.split(':', 1)
-                        if len(parts) > 1:
-                            desc = parts[1].strip()
-                            break
-        except SSHExecError:
-            pass
+#     for g in groups_list:
+#         desc = ''
+#         try:
+#             status, out_g, err_g = execute_ssh(f"samba-tool group show {shlex.quote(g)}")
+#             if status == 0:
+#                 for line in out_g.splitlines():
+#                     if line.strip().lower().startswith('description:'):
+#                         parts = line.split(':', 1)
+#                         if len(parts) > 1:
+#                             desc = parts[1].strip()
+#                             break
+#         except SSHExecError:
+#             pass
         
-        result.append({'name': g, 'description': desc})
+#         result.append({'name': g, 'description': desc})
     
-    return jsonify({'groups': result})
+#     return jsonify({'groups': result})
 
 # --- Group Members Management ---
 
